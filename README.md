@@ -11,7 +11,6 @@ This was tested on:
 
 Assumptions and test setup:
 
-* You may need dependencies installed prior to the follow step
 * AWS credentials in ~/.aws/credentials
 
 Set up a virtualenv and install packages from the requirements.txt with the following command:
