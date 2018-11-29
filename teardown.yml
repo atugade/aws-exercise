@@ -1,0 +1,57 @@
+---
+- name: Interview Demo
+  hosts: localhost 
+  connection: local
+  gather_facts: False
+  tasks:
+    - include_vars: "main.yml"
+
+    - name: Terminate instance(s) by tag
+      ec2_instance:
+        state: absent
+        region: "{{ region }}"
+        tags:
+          env: "{{ env }}"
+        wait: yes
+      register: ec2
+
+    - debug: var=ec2
+
+    - name: Delete load balancer
+      ec2_elb_lb:
+        state: absent
+        name: "{{ env }}-elb"
+        region: "{{ region }}"
+        tags:
+          env: "{{ env }}"
+          role: "{{ role }}"
+        wait: yes
+      register: elb
+
+    - debug: var=elb
+
+    - name: Delete instance sec group
+      ec2_group:
+        name: "{{ env }}-inst-secgroup"
+        region: "{{ region }}"
+        state: absent
+        tags:
+          env: "{{ env }}"
+          role: "{{ role }}"
+      register: inst_secgroup
+
+    - debug: var=inst_secgroup
+
+    - pause: seconds=3
+
+    - name: Create elb sec group
+      ec2_group:
+        name: "{{ env }}-elb-secgroup"
+        region: "{{ region }}"
+        state: absent
+        tags:
+          env: "{{ env }}"
+          role: "{{ role }}"
+      register: elb_secgroup
+
+    - debug: var=elb_secgroup

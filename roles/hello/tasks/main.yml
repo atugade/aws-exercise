@@ -1,0 +1,27 @@
+---
+- name: Install application deps
+  yum:
+    pkg:
+    - httpd
+    - mod_wsgi
+    - mod_wsgi-python26
+    - mod_wsgi-python27
+    state: present
+  notify: restart httpd
+
+- name: Install Flask
+  pip: name=Flask
+
+- file:
+    path: /var/www/flask
+    state: directory
+
+- name: Ensure default vhost config is up-to-date
+  template: src=default.conf.j2 dest=/etc/httpd/conf.d/default.conf
+  notify: restart httpd
+
+- name: Ensure hello app files are up-to-date
+  copy: src="{{ item }}" dest=/var/www/flask
+  with_items:
+  - hello.py
+  - hello.wsgi

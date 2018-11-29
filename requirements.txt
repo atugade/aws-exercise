@@ -1,0 +1,6 @@
+ansible==2.7.1
+boto3==1.9.37
+pyzmq==17.0.0
+tornado==4.5.3
+awscli
+boto

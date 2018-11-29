@@ -1,0 +1,155 @@
+---
+- name: AWS Ansible Demo
+  hosts: localhost 
+  connection: local
+  gather_facts: False
+  tasks:
+    - include_vars: "main.yml"
+
+    - name: Get my public IP
+      ipify_facts:
+      register: ipify
+
+    - set_fact: my_ip="{{ ipify_public_ip }}"
+
+    - debug: var=ipify_public_ip
+
+    - name: Create elb sec group
+      ec2_group:
+        name: "{{ env }}-elb-secgroup"
+        description: "Load balancer security group"
+        vpc_id: "{{ vpc_id }}"
+        region: "{{ region }}"
+        rules:
+          - proto: tcp
+            from_port: 80
+            to_port: 80
+            cidr_ip: "{{ my_ip }}/32"
+        rules_egress:
+          - proto: all
+            cidr_ip: 0.0.0.0/0
+        state: "present"
+        tags:
+          env: "{{ env }}"
+          role: "{{ role }}"
+      register: elb_secgroup
+
+    - debug: var=elb_secgroup
+
+    - name: Create instance sec group
+      ec2_group:
+        name: "{{ env }}-inst-secgroup"
+        description: "Instance security group"
+        vpc_id: "{{ vpc_id }}"
+        region: "{{ region }}"
+        rules:
+          - proto: tcp
+            from_port: 22
+            to_port: 22
+            cidr_ip: "{{ my_ip }}/32"
+          - proto: tcp
+            from_port: 80
+            to_port: 80
+            cidr_ip: "{{ my_ip }}/32"
+          - proto: tcp
+            from_port: 80
+            to_port: 80
+            group_id: "{{ elb_secgroup.group_id }}"
+        rules_egress:
+          - proto: all
+            cidr_ip: 0.0.0.0/0
+        state: "present"
+        tags:
+          env: "{{ env }}"
+          role: "{{ role }}"
+      register: inst_secgroup
+
+    - debug: var=inst_secgroup
+
+    - name: Create load balancer
+      ec2_elb_lb:
+        name: "{{ env }}-elb"
+        state: present
+        region: "{{ region }}"
+        zones:
+          - us-west-2a
+          - us-west-2b
+          - us-west-2c
+        security_group_ids:
+          - "{{ elb_secgroup.group_id }}"
+        listeners:
+          - protocol: http
+            load_balancer_port: 80
+            instance_port: 80
+        health_check:
+            ping_protocol: http
+            ping_port: 80
+            ping_path: "/"
+            response_timeout: 5
+            interval: 30
+            unhealthy_threshold: 5
+            healthy_threshold: 3
+        tags:
+          env: "{{ env }}"
+          role: "{{ role }}"
+      register: elb
+
+    - debug: var=elb
+
+    - name: Create an EC2 instance
+      ec2:
+        key_name: "{{ pem_key }}"
+        region: "{{ region }}"
+        group_id: "{{ inst_secgroup.group_id }}"
+        instance_type: "{{ instance_type }}"
+        image: "{{ ami }}"
+        wait: yes
+        instance_tags:
+            env: "{{ env }}"
+            role: "{{ role }}"
+            Name: "{{ env }}-inst"
+        count_tag: env
+        exact_count: 1
+        vpc_subnet_id: "{{ vpc_subnet_id }}"
+        assign_public_ip: yes
+      register: ec2
+
+    - debug: var=ec2
+
+    - name: wait for the servers to appear on the network
+      wait_for: host={{ item.public_dns_name }} port=22 delay=10 timeout=180 state=started
+      with_items: "{{ ec2.tagged_instances }}"
+      when: ec2.changed == True
+
+    - name: add server ip addresses to hosts group
+      add_host: hostname={{ item.public_ip }} groupname=launched
+      with_items: "{{ ec2.tagged_instances }}"
+
+
+- name: Provision webserver(s)
+  hosts: launched
+  remote_user: ec2-user
+  become: true
+  become_method: sudo
+  gather_facts: True
+  roles:
+    - hello
+
+- name: Add node(s) to load balancer
+  hosts: localhost
+  connection: local
+  gather_facts: False
+  tasks:
+    - pause: seconds=3
+
+    - debug: var=ec2.tagged_instances
+
+    - name: Add node(s) to the load balancer
+      local_action: ec2_elb
+      args:
+        instance_id: "{{ item.id }}"
+        ec2_elbs: "{{ env }}-elb"
+        state: present
+        region: us-west-2
+        wait: yes
+      with_items: "{{ ec2.tagged_instances }}"
