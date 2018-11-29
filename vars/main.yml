@@ -2,6 +2,6 @@ region: "YOUR_REGION_HERE"
 vpc_id: "YOUR_VPC_ID_HERE"
 vpc_subnet_id: "YOUR_SUBNET_ID_HERE"
 instance_type: "t2.nano"
-pem_key: "YOUR_KEYPAIR_NAME"
+pem_key: "atugade-demo"
 ami: ami-f2d3638a
 role: webapp
