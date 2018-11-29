@@ -40,6 +40,12 @@ Standing up the demo:
 ansible-playbook playbook.yml -e 'env=demo'
 ```
 
+The instance ip address and AWS given dns name for the elb are provided as debug output at the end of the run.  You can verify the flask application work via:
+
+```
+curl demo-elb-XXXXXXXXXX.us-west-2.elb.amazonaws.com/hello/steven
+```
+
 Tearing it down:
 
 ```

@@ -12,8 +12,6 @@
 
     - set_fact: my_ip="{{ ipify_public_ip }}"
 
-    - debug: var=ipify_public_ip
-
     - name: Create elb sec group
       ec2_group:
         name: "{{ env }}-elb-secgroup"
@@ -33,8 +31,6 @@
           env: "{{ env }}"
           role: "{{ role }}"
       register: elb_secgroup
-
-    - debug: var=elb_secgroup
 
     - name: Create instance sec group
       ec2_group:
@@ -64,8 +60,6 @@
           role: "{{ role }}"
       register: inst_secgroup
 
-    - debug: var=inst_secgroup
-
     - name: Create load balancer
       ec2_elb_lb:
         name: "{{ env }}-elb"
@@ -94,8 +88,6 @@
           role: "{{ role }}"
       register: elb
 
-    - debug: var=elb
-
     - name: Create an EC2 instance
       ec2:
         key_name: "{{ pem_key }}"
@@ -113,8 +105,6 @@
         vpc_subnet_id: "{{ vpc_subnet_id }}"
         assign_public_ip: yes
       register: ec2
-
-    - debug: var=ec2
 
     - name: wait for the servers to appear on the network
       wait_for: host={{ item.public_dns_name }} port=22 delay=10 timeout=180 state=started
@@ -142,8 +132,6 @@
   tasks:
     - pause: seconds=3
 
-    - debug: var=ec2.tagged_instances
-
     - name: Add node(s) to the load balancer
       local_action: ec2_elb
       args:
@@ -153,3 +141,7 @@
         region: us-west-2
         wait: yes
       with_items: "{{ ec2.tagged_instances }}"
+
+    - debug: var=ec2.tagged_instances[0].public_ip
+
+    - debug: var=elb.elb.dns_name
