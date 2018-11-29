@@ -26,6 +26,7 @@
           env: "{{ env }}"
           role: "{{ role }}"
         wait: yes
+        wait_timeout: 120
       register: elb
 
     - debug: var=elb
@@ -42,7 +43,7 @@
 
     - debug: var=inst_secgroup
 
-    - pause: seconds=3
+    - pause: seconds=5
 
     - name: Create elb sec group
       ec2_group:
